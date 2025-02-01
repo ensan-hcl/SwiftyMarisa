@@ -60,6 +60,12 @@ public final class Marisa {
         marisa_build_tree(context)
     }
 
+    public func build(_ builder: (([Int8]) -> Void) -> Void) {
+        let b: ([Int8]) -> Void = { marisa_add_word(self.context, $0) }
+        builder(b)
+        marisa_build_tree(context)
+    }
+
     /**
      Searches keys from the possible prefixes of a query string.
      - parameter query: Search string.
