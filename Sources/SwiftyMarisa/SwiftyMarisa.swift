@@ -71,6 +71,16 @@ public final class Marisa {
     }
 
     /**
+     Searches keys from the possible prefixes of a query string.
+     - parameter query: Search string.
+     - parameter type: Search type.
+     - returns: a sequence.
+     */
+    public func search(_ query: [Int8], _ type: MarisaSearchType) -> AnySequence<[Int8]> {
+        return AnySequence(UnsafeSearchResults(context: context, query: query, type: type))
+    }
+
+    /**
      Checks whether or not a query string is registered.
      - parameter query: Search string.
      - returns: true, if found.
@@ -121,6 +131,29 @@ private final class SearchResults: Sequence {
                           length: len,
                           encoding: .utf8,
                           freeWhenDone: false)
+        }
+    }
+
+    deinit {
+        marisa_delete_search_context(searchContext)
+    }
+}
+
+private final class UnsafeSearchResults: Sequence {
+    private let searchContext: UnsafeMutablePointer<marisa_search_context>
+
+    init(context: UnsafeMutablePointer<marisa_context>, query: [Int8], type: MarisaSearchType) {
+        self.searchContext = marisa_search(context, query, type)
+    }
+
+    func makeIterator() -> AnyIterator<[Int8]> {
+        return AnyIterator<[Int8]> { () -> [Int8]? in
+            var buf: UnsafeMutablePointer<Int8>?
+            var len: Int = 0
+            guard marisa_search_next(self.searchContext, &buf, &len) == 1 else { return nil }
+            guard len > 0 else { return nil }
+            guard let b = buf else { return nil }
+            return Array(UnsafeBufferPointer(start: b, count: len))
         }
     }
 
