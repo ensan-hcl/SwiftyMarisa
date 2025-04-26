@@ -25,7 +25,7 @@
 //  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 //  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import CMarisaWrapper
+import marisa_trie
 import Foundation
 
 public extension MarisaSearchType {
@@ -60,6 +60,12 @@ public final class Marisa {
         marisa_build_tree(context)
     }
 
+    public func build(_ builder: (([Int8]) -> Void) -> Void) {
+        let b: ([Int8]) -> Void = { marisa_add_word(self.context, $0) }
+        builder(b)
+        marisa_build_tree(context)
+    }
+
     /**
      Searches keys from the possible prefixes of a query string.
      - parameter query: Search string.
@@ -68,6 +74,16 @@ public final class Marisa {
      */
     public func search(_ query: String, _ type: MarisaSearchType) -> AnySequence<String> {
         return AnySequence(SearchResults(context: context, query: query, type: type))
+    }
+
+    /**
+     Searches keys from the possible prefixes of a query string.
+     - parameter query: Search string.
+     - parameter type: Search type.
+     - returns: a sequence.
+     */
+    public func search(_ query: [Int8], _ type: MarisaSearchType) -> AnySequence<[Int8]> {
+        return AnySequence(UnsafeSearchResults(context: context, query: query, type: type))
     }
 
     /**
@@ -103,10 +119,10 @@ public final class Marisa {
 // MARK: - Private
 
 private final class SearchResults: Sequence {
-    private let searchContext: OpaquePointer
+    private let searchContext: UnsafeMutablePointer<marisa_search_context>
 
-    init(context: OpaquePointer, query: String, type: MarisaSearchType) {
-        searchContext = marisa_search(context, query, type)
+    init(context: UnsafeMutablePointer<marisa_context>, query: String, type: MarisaSearchType) {
+        self.searchContext = marisa_search(context, query, type)
     }
 
     func makeIterator() -> AnyIterator<String> {
@@ -121,6 +137,29 @@ private final class SearchResults: Sequence {
                           length: len,
                           encoding: .utf8,
                           freeWhenDone: false)
+        }
+    }
+
+    deinit {
+        marisa_delete_search_context(searchContext)
+    }
+}
+
+private final class UnsafeSearchResults: Sequence {
+    private let searchContext: UnsafeMutablePointer<marisa_search_context>
+
+    init(context: UnsafeMutablePointer<marisa_context>, query: [Int8], type: MarisaSearchType) {
+        self.searchContext = marisa_search(context, query, type)
+    }
+
+    func makeIterator() -> AnyIterator<[Int8]> {
+        return AnyIterator<[Int8]> { () -> [Int8]? in
+            var buf: UnsafeMutablePointer<Int8>?
+            var len: Int = 0
+            guard marisa_search_next(self.searchContext, &buf, &len) == 1 else { return nil }
+            guard len > 0 else { return nil }
+            guard let b = buf else { return nil }
+            return Array(UnsafeBufferPointer(start: b, count: len))
         }
     }
 
