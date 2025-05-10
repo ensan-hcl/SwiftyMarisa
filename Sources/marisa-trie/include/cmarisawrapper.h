@@ -25,6 +25,8 @@
 #include <marisa/trie.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
+#include <string>
 
 #ifdef __cplusplus
 extern "C" {
@@ -124,6 +126,39 @@ inline void marisa_delete_context(marisa_context *context) {
     delete context->trie;
     free(context);
 }
+
+class RecordTrieWrapper {
+private:
+    marisa::Trie trie;
+    std::vector<std::string> values;  // キーに対応するデータ
+
+public:
+    RecordTrieWrapper() = default;
+
+    void build(const std::vector<std::string> &keys, const std::vector<std::string> &records) {
+        marisa::Keyset keyset;
+        values = records; // キーに対応するデータを格納
+
+        for (size_t i = 0; i < keys.size(); ++i) {
+            keyset.push_back(keys[i].c_str(), keys[i].size(), i);  // インデックスを保存
+        }
+
+        trie.build(keyset);
+    }
+
+    std::string lookup(const std::string &key) const {
+        marisa::Agent agent;
+        agent.set_query(key.c_str());
+
+        if (trie.lookup(agent)) {
+            return values[agent.key().id()];  // ID から対応するデータを取得
+        }
+
+        return "";
+    }
+};
+
+
 
 #ifdef __cplusplus
 }
