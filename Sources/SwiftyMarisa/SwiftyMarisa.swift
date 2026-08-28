@@ -61,7 +61,14 @@ public final class Marisa {
     }
 
     public func build(_ builder: (([Int8]) -> Void) -> Void) {
-        let b: ([Int8]) -> Void = { marisa_add_word(self.context, $0) }
+        // The length is passed explicitly: a Swift array has no NUL terminator,
+        // so letting the C side call strlen would append whatever bytes happen
+        // to follow it in memory to every key.
+        let b: ([Int8]) -> Void = { word in
+            word.withUnsafeBufferPointer { buffer in
+                marisa_add_word_l(self.context, buffer.baseAddress, buffer.count)
+            }
+        }
         builder(b)
         marisa_build_tree(context)
     }
@@ -149,7 +156,12 @@ private final class UnsafeSearchResults: Sequence {
     private let searchContext: UnsafeMutablePointer<marisa_search_context>
 
     init(context: UnsafeMutablePointer<marisa_context>, query: [Int8], type: MarisaSearchType) {
-        self.searchContext = marisa_search(context, query, type)
+        // Explicit length, for the same reason `build` passes one: the array is
+        // not NUL-terminated, and a strlen-based query would match against
+        // trailing memory instead of the bytes the caller asked for.
+        self.searchContext = query.withUnsafeBufferPointer { buffer in
+            marisa_search_l(context, buffer.baseAddress, buffer.count, type)
+        }
     }
 
     func makeIterator() -> AnyIterator<[Int8]> {

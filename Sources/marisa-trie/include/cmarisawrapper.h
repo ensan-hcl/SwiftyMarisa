@@ -61,6 +61,17 @@ inline void marisa_add_word(marisa_context *context, const char *word) {
     context->keyset->push_back(word);
 }
 
+// Length-carrying variants of add/search.
+//
+// The pointer-only versions call strlen, which is fine for a String but wrong
+// for the [Int8] overloads: a Swift array is not NUL-terminated, so strlen runs
+// off the end and the key or query picks up whatever follows in memory. The
+// keys are then built from, or matched against, bytes the caller never supplied
+// — and since the trailing memory differs from run to run, so do the results.
+inline void marisa_add_word_l(marisa_context *context, const char *word, size_t length) {
+    context->keyset->push_back(word, length);
+}
+
 inline void marisa_build_tree(marisa_context *context) {
     context->trie->build(*context->keyset);
 }
@@ -90,6 +101,33 @@ inline marisa_search_context *marisa_search(marisa_context *context, const char 
     }
 
     agent->set_query(search_context->query);
+    return search_context;
+}
+
+inline marisa_search_context *marisa_search_l(marisa_context *context, const char *query, size_t length, MarisaSearchType type) {
+    marisa::Agent *agent = new marisa::Agent;
+    marisa_search_context *search_context = (marisa_search_context *)malloc(sizeof(marisa_search_context));
+    search_context->trie = context->trie;
+    search_context->agent = agent;
+    // One spare byte so a zero-length query still gets a valid allocation, and
+    // so the buffer reads as an empty C string if anything treats it as one.
+    char* query_copy = (char *)malloc(length + 1);
+    memcpy(query_copy, query, length);
+    query_copy[length] = '\0';
+    search_context->query = query_copy;
+
+    switch (type) {
+        case MarisaSearchTypePrefix:
+            search_context->search = &marisa::Trie::common_prefix_search;
+            break;
+        case MarisaSearchTypePredictive:
+            search_context->search = &marisa::Trie::predictive_search;
+            break;
+    }
+
+    // The Agent keeps the pointer rather than copying, which is why the buffer
+    // is owned by the search context and freed with it.
+    agent->set_query(search_context->query, length);
     return search_context;
 }
 
