@@ -29,6 +29,66 @@ import SwiftyMarisa
 import XCTest
 
 class SwiftyMarisaTests: XCTestCase {
+    func testInt8PredictiveSearch() {
+        let trie = Marisa()
+        let keys: [[Int8]] = [
+            [1, -1],
+            [1, -1, 2],
+            [1, -1, 2, 3],
+            [1, -2, 4],
+        ]
+
+        trie.build { builder in
+            for key in keys { builder(key) }
+        }
+
+        XCTAssertEqual(
+            Set(trie.search([1, -1, 2], .predictive).map(Array.init)),
+            Set([[1, -1, 2], [1, -1, 2, 3]])
+        )
+    }
+
+    func testInt8EmbeddedNUL() {
+        let trie = Marisa()
+
+        trie.build { builder in
+            builder([1, 0, 2])
+            builder([1, 0, 2, 3])
+        }
+
+        XCTAssertEqual(
+            Set(trie.search([1, 0, 2], .predictive).map(Array.init)),
+            Set([[1, 0, 2], [1, 0, 2, 3]])
+        )
+    }
+
+    func testInt8EmptyQuery() {
+        let trie = Marisa()
+        trie.build { (builder: ([Int8]) -> Void) in
+            builder([1])
+            builder([2])
+        }
+
+        XCTAssertEqual(
+            Set(trie.search([], .predictive).map(Array.init)),
+            Set([[1], [2]])
+        )
+    }
+
+    func testInt8EmptyKeyAndQuery() {
+        let trie = Marisa()
+        trie.build { (builder: ([Int8]) -> Void) in
+            builder([])
+            builder([1])
+            builder([2])
+        }
+
+        XCTAssertEqual(
+            Set(trie.search([], .predictive).map(Array.init)),
+            Set([[], [1], [2]])
+        )
+    }
+
     func testPredictiveSearch() {
         let trie = Marisa()
 

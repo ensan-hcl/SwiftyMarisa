@@ -112,7 +112,9 @@ inline marisa_search_context *marisa_search_l(marisa_context *context, const cha
     // One spare byte so a zero-length query still gets a valid allocation, and
     // so the buffer reads as an empty C string if anything treats it as one.
     char* query_copy = (char *)malloc(length + 1);
-    memcpy(query_copy, query, length);
+    if (length != 0) {
+        memcpy(query_copy, query, length);
+    }
     query_copy[length] = '\0';
     search_context->query = query_copy;
 

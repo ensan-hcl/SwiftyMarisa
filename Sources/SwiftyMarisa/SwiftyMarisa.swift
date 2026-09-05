@@ -169,7 +169,7 @@ private final class UnsafeSearchResults: Sequence {
             var buf: UnsafeMutablePointer<Int8>?
             var len: Int = 0
             guard marisa_search_next(self.searchContext, &buf, &len) == 1 else { return nil }
-            guard len > 0 else { return nil }
+            if len == 0 { return [] }
             guard let b = buf else { return nil }
             return Array(UnsafeBufferPointer(start: b, count: len))
         }
