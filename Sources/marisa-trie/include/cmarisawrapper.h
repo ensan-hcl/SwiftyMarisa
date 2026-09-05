@@ -35,8 +35,6 @@ typedef enum _MarisaSearchType: int {
     MarisaSearchTypePredictive = 1
 } MarisaSearchType;
 
-typedef unsigned long size_t;
-
 typedef struct marisa_search_context {
     marisa::Trie  *trie;
     marisa::Agent  *agent;
